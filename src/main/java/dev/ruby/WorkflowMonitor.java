@@ -3,6 +3,7 @@ package dev.ruby;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 
 import dev.ruby.WorkflowMonitor.EventStatus;
@@ -17,6 +18,7 @@ public class WorkflowMonitor implements Runnable {
     private final StateManager stateManager;
     private final MonitorState state;
     private boolean isFirstRun = true;
+    private final HashSet<Long> activeRunIds = new HashSet<>();
 
     WorkflowMonitor(GitHubClient client, StateManager stateManager) {
         this.client = client;
@@ -39,7 +41,25 @@ public class WorkflowMonitor implements Runnable {
             }
 
             for (WorkflowRun r : runs) {
+                if (!this.activeRunIds.contains(r.id)) {
+                    this.activeRunIds.add(r.id);
+                }
+            }
+
+            // poll incomplete runs to avoid waiting for the next updatedAt sync
+            var iterator = activeRunIds.iterator();
+            while (iterator.hasNext()) {
+                long rId = iterator.next();
+                WorkflowRun r = client.getWorkflowRun(rId);
                 processRun(r);
+
+                if (EventStatus.map(r.status, r.conclusion).isFinished()) {
+                    iterator.remove();
+                }
+
+                if (r.updatedAt.isAfter(state.lastRunTime)) {
+                    state.lastRunTime = r.updatedAt;
+                }
             }
 
             stateManager.save(state);
@@ -53,7 +73,6 @@ public class WorkflowMonitor implements Runnable {
     }
 
     private void processRun(WorkflowRun r) throws Exception {
-
         EventStatus runStatus = EventStatus.map(r.status, r.conclusion);
 
         String branch = r.headBranch;
@@ -63,7 +82,7 @@ public class WorkflowMonitor implements Runnable {
             return;
         }
 
-        report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, runStatus, branch, sha,
+        report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, EventStatus.STARTED, branch, sha,
                 r.name));
 
         List<WorkflowJob> jobs = client.getJobsForRun(r.id);
@@ -71,40 +90,42 @@ public class WorkflowMonitor implements Runnable {
             if (j.startedAt == null) {
                 continue;
             }
-            EventStatus jobStatus = EventStatus.map(j.status, j.conclusion);
-
-            report(new Event(String.valueOf(j.id), j.startedAt, WorkflowLevel.JOB, runStatus, branch, sha, j.name));
-
-            for (WorkflowStep s : j.steps) {
-                if (s.startedAt == null) {
-                    break;
-                }
-                EventStatus stepStatus = EventStatus.map(s.status, s.conclusion);
-
-                report(new Event(j.id + "_" + s.number, s.startedAt, WorkflowLevel.STEP, runStatus, branch, sha,
-                        s.name));
-
-                if (stepStatus.isFinished()) {
-                    report(new Event(j.id + "_" + s.number, s.completedAt, WorkflowLevel.STEP, stepStatus, branch,
-                            sha, s.name));
-                }
-            }
-
-            if (jobStatus.isFinished()) {
-                report(new Event(String.valueOf(j.id), j.completedAt, WorkflowLevel.JOB, jobStatus, branch, sha,
-                        j.name));
-            }
-
+            processJob(j, branch, sha);
         }
 
         if (runStatus.isFinished()) {
             report(new Event(String.valueOf(r.id), r.updatedAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
         }
+    }
 
-        if (r.updatedAt.isAfter(state.lastRunTime)) {
-            state.lastRunTime = r.updatedAt;
+    private void processJob(WorkflowJob j, String branch, String sha) throws Exception {
+        EventStatus jobStatus = EventStatus.map(j.status, j.conclusion);
+        report(new Event(String.valueOf(j.id), j.startedAt, WorkflowLevel.JOB, EventStatus.STARTED, branch, sha,
+                j.name));
+
+        for (WorkflowStep s : j.steps) {
+            if (s.startedAt == null) {
+                break;
+            }
+            processStep(s, j.id, branch, sha);
         }
 
+        if (jobStatus.isFinished()) {
+            report(new Event(String.valueOf(j.id), j.completedAt, WorkflowLevel.JOB, jobStatus, branch, sha,
+                    j.name));
+        }
+    }
+
+    private void processStep(WorkflowStep s, long jobId, String branch, String sha) throws Exception {
+        EventStatus stepStatus = EventStatus.map(s.status, s.conclusion);
+        report(new Event(jobId + "_" + s.number, s.startedAt, WorkflowLevel.STEP, EventStatus.STARTED, branch,
+                sha,
+                s.name));
+
+        if (stepStatus.isFinished()) {
+            report(new Event(jobId + "_" + s.number, s.completedAt, WorkflowLevel.STEP, stepStatus, branch,
+                    sha, s.name));
+        }
     }
 
     private List<WorkflowRun> pollRuns(Instant lastRunTime) throws Exception {

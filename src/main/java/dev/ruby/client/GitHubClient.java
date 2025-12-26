@@ -61,6 +61,21 @@ public class GitHubClient {
         return Arrays.asList(jobs);
     }
 
+    public WorkflowRun getWorkflowRun(long runId) throws Exception {
+        String url = String.format("https://api.github.com/repos/%s/%s/actions/runs/%d", owner, repo, runId);
+
+        HttpRequest request = buildRequest(url);
+        HttpResponse<String> response = sendWithRetry(request);
+
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("API Error: " + response.statusCode() + " " + response.body());
+        }
+
+        JsonNode root = objectMapper.readTree(response.body());
+        WorkflowRun run = objectMapper.treeToValue(root, WorkflowRun.class);
+        return run;
+    }
+
     private HttpResponse<String> sendWithRetry(HttpRequest request) throws Exception {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
