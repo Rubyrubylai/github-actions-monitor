@@ -8,8 +8,12 @@ import java.util.List;
 import java.util.Set;
 
 import dev.ruby.client.GitHubClient;
+import dev.ruby.model.EventStatus;
 import dev.ruby.model.MonitorState;
+import dev.ruby.model.RunContext;
+import dev.ruby.model.WorkflowEvent;
 import dev.ruby.model.WorkflowJob;
+import dev.ruby.model.WorkflowLevel;
 import dev.ruby.model.WorkflowRun;
 import dev.ruby.model.WorkflowStep;
 
@@ -94,11 +98,11 @@ public class WorkflowMonitor implements Runnable {
 
         RunContext runCtx = new RunContext(r.headBranch(), r.headSha());
         if (runStatus == EventStatus.QUEUED || runStatus == EventStatus.UNKNOWN) {
-            report(new Event(String.valueOf(r.id()), r.createdAt(), WorkflowLevel.RUN, runStatus, runCtx, r.name()));
+            report(new WorkflowEvent(String.valueOf(r.id()), r.createdAt(), WorkflowLevel.RUN, runStatus, runCtx, r.name()));
             return;
         }
 
-        report(new Event(String.valueOf(r.id()), r.createdAt(), WorkflowLevel.RUN, EventStatus.STARTED, runCtx,
+        report(new WorkflowEvent(String.valueOf(r.id()), r.createdAt(), WorkflowLevel.RUN, EventStatus.STARTED, runCtx,
                 r.name()));
 
         List<WorkflowJob> jobs = client.getJobsForRun(r.id());
@@ -110,13 +114,13 @@ public class WorkflowMonitor implements Runnable {
         }
 
         if (runStatus.isFinished()) {
-            report(new Event(String.valueOf(r.id()), r.updatedAt(), WorkflowLevel.RUN, runStatus, runCtx, r.name()));
+            report(new WorkflowEvent(String.valueOf(r.id()), r.updatedAt(), WorkflowLevel.RUN, runStatus, runCtx, r.name()));
         }
     }
 
     private void processJob(WorkflowJob j, RunContext runCtx) throws Exception {
         EventStatus jobStatus = EventStatus.map(j.status(), j.conclusion());
-        report(new Event(String.valueOf(j.id()), j.startedAt(), WorkflowLevel.JOB, EventStatus.STARTED, runCtx,
+        report(new WorkflowEvent(String.valueOf(j.id()), j.startedAt(), WorkflowLevel.JOB, EventStatus.STARTED, runCtx,
                 j.name()));
 
         for (WorkflowStep s : j.steps()) {
@@ -127,17 +131,17 @@ public class WorkflowMonitor implements Runnable {
         }
 
         if (jobStatus.isFinished()) {
-            report(new Event(String.valueOf(j.id()), j.completedAt(), WorkflowLevel.JOB, jobStatus, runCtx, j.name()));
+            report(new WorkflowEvent(String.valueOf(j.id()), j.completedAt(), WorkflowLevel.JOB, jobStatus, runCtx, j.name()));
         }
     }
 
     private void processStep(WorkflowStep s, long jobId, RunContext runCtx) throws Exception {
         EventStatus stepStatus = EventStatus.map(s.status(), s.conclusion());
-        report(new Event(jobId + "_" + s.number(), s.startedAt(), WorkflowLevel.STEP, EventStatus.STARTED, runCtx,
+        report(new WorkflowEvent(jobId + "_" + s.number(), s.startedAt(), WorkflowLevel.STEP, EventStatus.STARTED, runCtx,
                 s.name()));
 
         if (stepStatus.isFinished()) {
-            report(new Event(jobId + "_" + s.number(), s.completedAt(), WorkflowLevel.STEP, stepStatus, runCtx,
+            report(new WorkflowEvent(jobId + "_" + s.number(), s.completedAt(), WorkflowLevel.STEP, stepStatus, runCtx,
                     s.name()));
         }
     }
@@ -176,45 +180,11 @@ public class WorkflowMonitor implements Runnable {
         return runs;
     }
 
-    private void report(Event event) {
-        if (!state.isNewEvent(event.key, event.time)) {
+    private void report(WorkflowEvent event) {
+        if (!state.isNewEvent(event.getKey(), event.getTime())) {
             return;
         }
         event.print();
-    }
-
-    private static class Event {
-        String key;
-        Instant time;
-        WorkflowLevel level;
-        EventStatus status;
-        RunContext runCtx;
-        String name;
-
-        Event(String id, Instant time, WorkflowLevel level, EventStatus status, RunContext runCtx,
-                String name) {
-            this.key = String.format("%s_%s_%s_%s", id, time, level, status);
-            this.time = time;
-            this.level = level;
-            this.status = status;
-            this.runCtx = runCtx;
-            this.name = name;
-        }
-
-        private void print() {
-            System.out.printf("%-24s | %-5s | %-14s | %-10s | %-8s | %s%n", time, level, status, runCtx.branch,
-                    runCtx.shortSha(), name);
-        }
-    }
-
-    private record RunContext(
-        String branch, 
-        String sha
-    ) {
-        private String shortSha() {
-            if (sha == null || sha.length() < 7) return sha;
-            return sha.substring(0, 7);
-        }
     }
 
     private void printTableHeader() {
@@ -223,42 +193,5 @@ public class WorkflowMonitor implements Runnable {
 
         System.out.println("-".repeat(24) + "-+-" + "-".repeat(5) + "-+-" +
                 "-".repeat(14) + "-+-" + "-".repeat(10) + "-+-" + "-".repeat(8) + "-+-" + "-".repeat(30));
-    }
-
-    private enum WorkflowLevel {
-        RUN, JOB, STEP;
-    }
-
-    private enum EventStatus {
-        QUEUED, STARTED, SUCCESS, FAILURE, CANCELLED, SKIPPED, UNKNOWN;
-
-        private static EventStatus map(String status, String conclusion) {
-            if (status == null)
-                return UNKNOWN;
-
-            return switch (status.toLowerCase()) {
-                case "queued", "requested", "waiting", "pending" -> QUEUED;
-                case "in_progress" -> STARTED;
-                case "completed" -> fromConclusion(conclusion);
-                default -> UNKNOWN;
-            };
-        }
-
-        private static EventStatus fromConclusion(String conclusion) {
-            if (conclusion == null)
-                return SUCCESS;
-
-            return switch (conclusion.toLowerCase()) {
-                case "success" -> SUCCESS;
-                case "failure", "timed_out", "action_required", "stale" -> FAILURE;
-                case "cancelled" -> CANCELLED;
-                case "skipped" -> SKIPPED;
-                default -> SUCCESS;
-            };
-        }
-
-        private boolean isFinished() {
-            return this == SUCCESS || this == FAILURE || this == CANCELLED || this == SKIPPED;
-        }
     }
 }
