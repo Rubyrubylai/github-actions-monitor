@@ -39,9 +39,22 @@ public class WorkflowMonitor implements Runnable {
                 isFirstRun = false;
             }
 
+            // avoid duplicate fetch in one round
+            HashSet<Long> processedInFirstIteration = new HashSet<>();
+
             for (WorkflowRun r : runs) {
-                if (!this.activeRunIds.contains(r.id)) {
+                processRun(r);
+
+                processedInFirstIteration.add(r.id);
+
+                if (!EventStatus.map(r.status, r.conclusion).isFinished()) {
                     this.activeRunIds.add(r.id);
+                } else {
+                    activeRunIds.remove(r.id);
+                }
+
+                if (r.updatedAt.isAfter(state.lastRunTime)) {
+                    state.lastRunTime = r.updatedAt;
                 }
             }
 
@@ -49,6 +62,10 @@ public class WorkflowMonitor implements Runnable {
             var iterator = activeRunIds.iterator();
             while (iterator.hasNext()) {
                 long rId = iterator.next();
+                if (processedInFirstIteration.contains(rId)) {
+                    continue;
+                }
+
                 WorkflowRun r = client.getWorkflowRun(rId);
                 processRun(r);
 
