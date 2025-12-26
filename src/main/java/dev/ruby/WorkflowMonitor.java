@@ -178,6 +178,7 @@ public class WorkflowMonitor implements Runnable {
 
             if (page > MAX_PAGES) {
                 System.err.println("Warning: Too many new runs. Only the latest 1000 events are retrieved.");
+                break;
             }
         }
 
