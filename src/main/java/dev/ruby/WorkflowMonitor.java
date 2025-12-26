@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import dev.ruby.client.GitHubClient;
 import dev.ruby.model.MonitorState;
@@ -17,22 +18,22 @@ public class WorkflowMonitor implements Runnable {
     private final StateManager stateManager;
     private final MonitorState state;
     private boolean isFirstRun = true;
-    private final HashSet<Long> activeRunIds = new HashSet<>();
+    private final Set<Long> activeRunIds = new HashSet<>();
 
     WorkflowMonitor(GitHubClient client, StateManager stateManager) {
         this.client = client;
         this.stateManager = stateManager;
         this.state = stateManager.load();
-        if (this.state.lastRunTime == null) {
-            this.state.lastRunTime = Instant.now();
+        if (this.state.getLastRunTime() == null) {
+            this.state.setLastRunTime(Instant.now());
         }
     }
 
     @Override
     public void run() {
         try {
-            List<WorkflowRun> runs = pollRuns(state.lastRunTime);
-            runs.sort(Comparator.comparing(run -> run.updatedAt));
+            List<WorkflowRun> runs = pollRuns(state.getLastRunTime());
+            runs.sort(Comparator.comparing(run -> run.updatedAt()));
 
             if (isFirstRun) {
                 printTableHeader();
@@ -40,21 +41,21 @@ public class WorkflowMonitor implements Runnable {
             }
 
             // avoid duplicate fetch in one round
-            HashSet<Long> processedInFirstIteration = new HashSet<>();
+            Set<Long> processedInFirstIteration = new HashSet<>();
 
             for (WorkflowRun r : runs) {
                 processRun(r);
 
-                processedInFirstIteration.add(r.id);
+                processedInFirstIteration.add(r.id());
 
-                if (!EventStatus.map(r.status, r.conclusion).isFinished()) {
-                    this.activeRunIds.add(r.id);
+                if (!EventStatus.map(r.status(), r.conclusion()).isFinished()) {
+                    this.activeRunIds.add(r.id());
                 } else {
-                    activeRunIds.remove(r.id);
+                    activeRunIds.remove(r.id());
                 }
 
-                if (r.updatedAt.isAfter(state.lastRunTime)) {
-                    state.lastRunTime = r.updatedAt;
+                if (r.updatedAt().isAfter(state.getLastRunTime())) {
+                    state.setLastRunTime(r.updatedAt());
                 }
             }
 
@@ -69,12 +70,12 @@ public class WorkflowMonitor implements Runnable {
                 WorkflowRun r = client.getWorkflowRun(rId);
                 processRun(r);
 
-                if (EventStatus.map(r.status, r.conclusion).isFinished()) {
+                if (EventStatus.map(r.status(), r.conclusion()).isFinished()) {
                     iterator.remove();
                 }
 
-                if (r.updatedAt.isAfter(state.lastRunTime)) {
-                    state.lastRunTime = r.updatedAt;
+                if (r.updatedAt().isAfter(state.getLastRunTime())) {
+                    state.setLastRunTime(r.updatedAt());
                 }
             }
 
@@ -89,51 +90,55 @@ public class WorkflowMonitor implements Runnable {
     }
 
     private void processRun(WorkflowRun r) throws Exception {
-        EventStatus runStatus = EventStatus.map(r.status, r.conclusion);
+        EventStatus runStatus = EventStatus.map(r.status(), r.conclusion());
 
-        RunContext runCtx = new RunContext(r.headBranch, r.headSha);
+        RunContext runCtx = new RunContext(r.headBranch(), r.headSha());
         if (runStatus == EventStatus.QUEUED || runStatus == EventStatus.UNKNOWN) {
-            report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, runStatus, runCtx, r.name));
+            report(new Event(String.valueOf(r.id()), r.createdAt(), WorkflowLevel.RUN, runStatus, runCtx, r.name()));
             return;
         }
 
-        report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, EventStatus.STARTED, runCtx, r.name));
+        report(new Event(String.valueOf(r.id()), r.createdAt(), WorkflowLevel.RUN, EventStatus.STARTED, runCtx,
+                r.name()));
 
-        List<WorkflowJob> jobs = client.getJobsForRun(r.id);
+        List<WorkflowJob> jobs = client.getJobsForRun(r.id());
         for (WorkflowJob j : jobs) {
-            if (j.startedAt == null) {
+            if (j.startedAt() == null) {
                 continue;
             }
             processJob(j, runCtx);
         }
 
         if (runStatus.isFinished()) {
-            report(new Event(String.valueOf(r.id), r.updatedAt, WorkflowLevel.RUN, runStatus, runCtx, r.name));
+            report(new Event(String.valueOf(r.id()), r.updatedAt(), WorkflowLevel.RUN, runStatus, runCtx, r.name()));
         }
     }
 
     private void processJob(WorkflowJob j, RunContext runCtx) throws Exception {
-        EventStatus jobStatus = EventStatus.map(j.status, j.conclusion);
-        report(new Event(String.valueOf(j.id), j.startedAt, WorkflowLevel.JOB, EventStatus.STARTED, runCtx, j.name));
+        EventStatus jobStatus = EventStatus.map(j.status(), j.conclusion());
+        report(new Event(String.valueOf(j.id()), j.startedAt(), WorkflowLevel.JOB, EventStatus.STARTED, runCtx,
+                j.name()));
 
-        for (WorkflowStep s : j.steps) {
-            if (s.startedAt == null) {
+        for (WorkflowStep s : j.steps()) {
+            if (s.startedAt() == null) {
                 break;
             }
-            processStep(s, j.id, runCtx);
+            processStep(s, j.id(), runCtx);
         }
 
         if (jobStatus.isFinished()) {
-            report(new Event(String.valueOf(j.id), j.completedAt, WorkflowLevel.JOB, jobStatus, runCtx, j.name));
+            report(new Event(String.valueOf(j.id()), j.completedAt(), WorkflowLevel.JOB, jobStatus, runCtx, j.name()));
         }
     }
 
     private void processStep(WorkflowStep s, long jobId, RunContext runCtx) throws Exception {
-        EventStatus stepStatus = EventStatus.map(s.status, s.conclusion);
-        report(new Event(jobId + "_" + s.number, s.startedAt, WorkflowLevel.STEP, EventStatus.STARTED, runCtx, s.name));
+        EventStatus stepStatus = EventStatus.map(s.status(), s.conclusion());
+        report(new Event(jobId + "_" + s.number(), s.startedAt(), WorkflowLevel.STEP, EventStatus.STARTED, runCtx,
+                s.name()));
 
         if (stepStatus.isFinished()) {
-            report(new Event(jobId + "_" + s.number, s.completedAt, WorkflowLevel.STEP, stepStatus, runCtx, s.name));
+            report(new Event(jobId + "_" + s.number(), s.completedAt(), WorkflowLevel.STEP, stepStatus, runCtx,
+                    s.name()));
         }
     }
 
@@ -151,7 +156,7 @@ public class WorkflowMonitor implements Runnable {
 
             boolean pageContainsNewData = false;
             for (WorkflowRun run : pageRuns) {
-                if (run.updatedAt.isAfter(lastRunTime)) {
+                if (run.updatedAt().isAfter(lastRunTime)) {
                     runs.add(run);
                     pageContainsNewData = true;
                 }
@@ -172,11 +177,9 @@ public class WorkflowMonitor implements Runnable {
     }
 
     private void report(Event event) {
-        if (state.alreadySeenKeys.containsKey(event.key)) {
+        if (!state.isNewEvent(event.key, event.time)) {
             return;
         }
-
-        state.alreadySeenKeys.put(event.key, event.time);
         event.print();
     }
 

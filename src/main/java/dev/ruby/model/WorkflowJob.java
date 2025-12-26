@@ -7,15 +7,20 @@ import java.util.List;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+// @formatter:off
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class WorkflowJob {
-    public long id;
-    public String name;
-    public String status;
-    public String conclusion;
-    @JsonProperty("started_at")
-    public Instant startedAt;
-    @JsonProperty("completed_at")
-    public Instant completedAt;
-    public List<WorkflowStep> steps = new ArrayList<>();
+public record WorkflowJob(
+    long id,
+    String name,
+    String status,
+    String conclusion,
+    @JsonProperty("started_at") Instant startedAt,
+    @JsonProperty("completed_at") Instant completedAt,
+    List<WorkflowStep> steps
+) {
+    public WorkflowJob {
+        if (steps == null) {
+            steps = new ArrayList<>();
+        }
+    }
 }
