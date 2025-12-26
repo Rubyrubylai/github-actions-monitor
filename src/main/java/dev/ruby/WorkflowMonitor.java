@@ -6,7 +6,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 
-import dev.ruby.WorkflowMonitor.EventStatus;
 import dev.ruby.client.GitHubClient;
 import dev.ruby.model.MonitorState;
 import dev.ruby.model.WorkflowJob;
@@ -75,56 +74,49 @@ public class WorkflowMonitor implements Runnable {
     private void processRun(WorkflowRun r) throws Exception {
         EventStatus runStatus = EventStatus.map(r.status, r.conclusion);
 
-        String branch = r.headBranch;
-        String sha = r.headSha;
+        RunContext runCtx = new RunContext(r.headBranch, r.headSha);
         if (runStatus == EventStatus.QUEUED || runStatus == EventStatus.UNKNOWN) {
-            report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
+            report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, runStatus, runCtx, r.name));
             return;
         }
 
-        report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, EventStatus.STARTED, branch, sha,
-                r.name));
+        report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, EventStatus.STARTED, runCtx, r.name));
 
         List<WorkflowJob> jobs = client.getJobsForRun(r.id);
         for (WorkflowJob j : jobs) {
             if (j.startedAt == null) {
                 continue;
             }
-            processJob(j, branch, sha);
+            processJob(j, runCtx);
         }
 
         if (runStatus.isFinished()) {
-            report(new Event(String.valueOf(r.id), r.updatedAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
+            report(new Event(String.valueOf(r.id), r.updatedAt, WorkflowLevel.RUN, runStatus, runCtx, r.name));
         }
     }
 
-    private void processJob(WorkflowJob j, String branch, String sha) throws Exception {
+    private void processJob(WorkflowJob j, RunContext runCtx) throws Exception {
         EventStatus jobStatus = EventStatus.map(j.status, j.conclusion);
-        report(new Event(String.valueOf(j.id), j.startedAt, WorkflowLevel.JOB, EventStatus.STARTED, branch, sha,
-                j.name));
+        report(new Event(String.valueOf(j.id), j.startedAt, WorkflowLevel.JOB, EventStatus.STARTED, runCtx, j.name));
 
         for (WorkflowStep s : j.steps) {
             if (s.startedAt == null) {
                 break;
             }
-            processStep(s, j.id, branch, sha);
+            processStep(s, j.id, runCtx);
         }
 
         if (jobStatus.isFinished()) {
-            report(new Event(String.valueOf(j.id), j.completedAt, WorkflowLevel.JOB, jobStatus, branch, sha,
-                    j.name));
+            report(new Event(String.valueOf(j.id), j.completedAt, WorkflowLevel.JOB, jobStatus, runCtx, j.name));
         }
     }
 
-    private void processStep(WorkflowStep s, long jobId, String branch, String sha) throws Exception {
+    private void processStep(WorkflowStep s, long jobId, RunContext runCtx) throws Exception {
         EventStatus stepStatus = EventStatus.map(s.status, s.conclusion);
-        report(new Event(jobId + "_" + s.number, s.startedAt, WorkflowLevel.STEP, EventStatus.STARTED, branch,
-                sha,
-                s.name));
+        report(new Event(jobId + "_" + s.number, s.startedAt, WorkflowLevel.STEP, EventStatus.STARTED, runCtx, s.name));
 
         if (stepStatus.isFinished()) {
-            report(new Event(jobId + "_" + s.number, s.completedAt, WorkflowLevel.STEP, stepStatus, branch,
-                    sha, s.name));
+            report(new Event(jobId + "_" + s.number, s.completedAt, WorkflowLevel.STEP, stepStatus, runCtx, s.name));
         }
     }
 
@@ -176,23 +168,32 @@ public class WorkflowMonitor implements Runnable {
         Instant time;
         WorkflowLevel level;
         EventStatus status;
-        String branch;
-        String sha;
+        RunContext runCtx;
         String name;
 
-        Event(String id, Instant time, WorkflowLevel level, EventStatus status, String branch, String sha,
+        Event(String id, Instant time, WorkflowLevel level, EventStatus status, RunContext runCtx,
                 String name) {
             this.key = String.format("%s_%s_%s_%s", id, time, level, status);
             this.time = time;
             this.level = level;
             this.status = status;
-            this.branch = branch;
-            this.sha = sha.substring(0, 7);
+            this.runCtx = runCtx;
             this.name = name;
         }
 
-        public void print() {
-            System.out.printf("%-24s | %-5s | %-14s | %-10s | %-8s | %s%n", time, level, status, branch, sha, name);
+        private void print() {
+            System.out.printf("%-24s | %-5s | %-14s | %-10s | %-8s | %s%n", time, level, status, runCtx.branch,
+                    runCtx.shortSha(), name);
+        }
+    }
+
+    private record RunContext(
+        String branch, 
+        String sha
+    ) {
+        private String shortSha() {
+            if (sha == null || sha.length() < 7) return sha;
+            return sha.substring(0, 7);
         }
     }
 
@@ -208,10 +209,10 @@ public class WorkflowMonitor implements Runnable {
         RUN, JOB, STEP;
     }
 
-    public enum EventStatus {
+    private enum EventStatus {
         QUEUED, STARTED, SUCCESS, FAILURE, CANCELLED, SKIPPED, UNKNOWN;
 
-        public static EventStatus map(String status, String conclusion) {
+        private static EventStatus map(String status, String conclusion) {
             if (status == null)
                 return UNKNOWN;
 
@@ -236,7 +237,7 @@ public class WorkflowMonitor implements Runnable {
             };
         }
 
-        public boolean isFinished() {
+        private boolean isFinished() {
             return this == SUCCESS || this == FAILURE || this == CANCELLED || this == SKIPPED;
         }
     }
