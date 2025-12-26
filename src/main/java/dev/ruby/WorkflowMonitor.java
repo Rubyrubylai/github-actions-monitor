@@ -59,11 +59,11 @@ public class WorkflowMonitor implements Runnable {
         String branch = r.headBranch;
         String sha = r.headSha;
         if (runStatus == EventStatus.QUEUED || runStatus == EventStatus.UNKNOWN) {
-            report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
+            report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
             return;
         }
 
-        report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, runStatus, branch, sha,
+        report(new Event(String.valueOf(r.id), r.createdAt, WorkflowLevel.RUN, runStatus, branch, sha,
                 r.name));
 
         List<WorkflowJob> jobs = client.getJobsForRun(r.id);
@@ -73,7 +73,7 @@ public class WorkflowMonitor implements Runnable {
             }
             EventStatus jobStatus = EventStatus.map(j.status, j.conclusion);
 
-            report(new Event(j.id, j.startedAt, WorkflowLevel.JOB, runStatus, branch, sha, j.name));
+            report(new Event(String.valueOf(j.id), j.startedAt, WorkflowLevel.JOB, runStatus, branch, sha, j.name));
 
             for (WorkflowStep s : j.steps) {
                 if (s.startedAt == null) {
@@ -81,23 +81,24 @@ public class WorkflowMonitor implements Runnable {
                 }
                 EventStatus stepStatus = EventStatus.map(s.status, s.conclusion);
 
-                report(new Event(j.id + s.number, s.startedAt, WorkflowLevel.STEP, runStatus, branch, sha,
+                report(new Event(j.id + "_" + s.number, s.startedAt, WorkflowLevel.STEP, runStatus, branch, sha,
                         s.name));
 
                 if (stepStatus.isFinished()) {
-                    report(new Event(j.id + s.number, s.completedAt, WorkflowLevel.STEP, stepStatus, branch,
+                    report(new Event(j.id + "_" + s.number, s.completedAt, WorkflowLevel.STEP, stepStatus, branch,
                             sha, s.name));
                 }
             }
 
             if (jobStatus.isFinished()) {
-                report(new Event(j.id, j.completedAt, WorkflowLevel.JOB, jobStatus, branch, sha, j.name));
+                report(new Event(String.valueOf(j.id), j.completedAt, WorkflowLevel.JOB, jobStatus, branch, sha,
+                        j.name));
             }
 
         }
 
         if (runStatus.isFinished()) {
-            report(new Event(r.id, r.updatedAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
+            report(new Event(String.valueOf(r.id), r.updatedAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
         }
 
         if (r.updatedAt.isAfter(state.lastRunTime)) {
@@ -158,7 +159,8 @@ public class WorkflowMonitor implements Runnable {
         String sha;
         String name;
 
-        Event(long id, Instant time, WorkflowLevel level, EventStatus status, String branch, String sha, String name) {
+        Event(String id, Instant time, WorkflowLevel level, EventStatus status, String branch, String sha,
+                String name) {
             this.key = String.format("%s_%s_%s_%s", id, time, level, status);
             this.time = time;
             this.level = level;
