@@ -46,7 +46,7 @@ public class WorkflowMonitor implements Runnable {
 
                 Event runCompletedEvent = new Event(r.id, r.updatedAt, WorkflowLevel.RUN,
                         EventStatus.fromConclusion(r.conclusion), branch, sha, r.name);
-                if (state.alreadySeenKeys.contains(runCompletedEvent.key)) {
+                if (state.alreadySeenKeys.containsKey(runCompletedEvent.key)) {
                     continue;
                 }
                 report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, EventStatus.START, branch, sha,
@@ -138,11 +138,11 @@ public class WorkflowMonitor implements Runnable {
     }
 
     private void report(Event event) {
-        if (state.alreadySeenKeys.contains(event.key)) {
+        if (state.alreadySeenKeys.containsKey(event.key)) {
             return;
         }
 
-        state.alreadySeenKeys.add(event.key);
+        state.alreadySeenKeys.put(event.key, event.time);
         event.print();
     }
 

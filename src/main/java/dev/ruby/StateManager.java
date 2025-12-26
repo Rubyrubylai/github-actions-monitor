@@ -2,6 +2,7 @@ package dev.ruby;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -9,6 +10,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import dev.ruby.model.MonitorState;
 
 public class StateManager {
+    private final Duration DEFAULT_RETENTION_PERIOD = Duration.ofDays(7);
     private final File stateFile = new File("workflow-state.json");
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
@@ -26,6 +28,7 @@ public class StateManager {
 
     public void save(MonitorState state) {
         try {
+            state.cleanupOldKeys(DEFAULT_RETENTION_PERIOD);
             mapper.writerWithDefaultPrettyPrinter().writeValue(stateFile, state);
         } catch (IOException e) {
             System.err.println("Save error " + e.getMessage());
