@@ -3,21 +3,25 @@ package dev.ruby;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 
 public class WorkflowMonitor implements Runnable {
     private final GitHubClient client;
-    private final HashSet<String> alreadySeenKeys = new HashSet();
+    private final StateManager stateManager;
+    private final MonitorState state;
     private boolean isFirstRun = true;
 
-    WorkflowMonitor(GitHubClient client) {
+    WorkflowMonitor(GitHubClient client, StateManager stateManager) {
         this.client = client;
+        this.stateManager = stateManager;
+        this.state = stateManager.load();
     }
 
+    @Override
     public void run() {
         try {
-            List<WorkflowRun> runs = pollRuns();
+            Instant lastRunTime = state.lastRunTime == null ? Instant.now() : state.lastRunTime;
+            List<WorkflowRun> runs = pollRuns(lastRunTime);
             runs.sort(Comparator.comparing(run -> run.updatedAt));
 
             if (isFirstRun) {
@@ -32,12 +36,13 @@ public class WorkflowMonitor implements Runnable {
                     continue;
                 }
 
-                Event runEvent = new Event(r.id, r.createdAt, WorkflowLevel.RUN, EventStatus.START, branch, sha,
-                        r.name);
-                if (alreadySeenKeys.contains(runEvent.key)) {
+                Event runCompletedEvent = new Event(r.id, r.updatedAt, WorkflowLevel.RUN,
+                        EventStatus.fromConclusion(r.conclusion), branch, sha, r.name);
+                if (state.alreadySeenKeys.contains(runCompletedEvent.key)) {
                     continue;
                 }
-                report(runEvent);
+                report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, EventStatus.START, branch, sha,
+                        r.name));
 
                 List<Job> jobs = client.getJobsForRun(r.id);
                 for (Job j : jobs) {
@@ -73,18 +78,25 @@ public class WorkflowMonitor implements Runnable {
                     report(new Event(r.id, r.updatedAt, WorkflowLevel.RUN, EventStatus.fromConclusion(r.conclusion),
                             branch, sha, r.name));
                 }
+
+                state.lastRunTime = r.updatedAt;
             }
+
+            stateManager.save(state);
 
         } catch (Exception e) {
             System.out.print("Error polling API: " + e.getMessage());
         }
     }
 
-    private List<WorkflowRun> pollRuns() throws Exception {
+    public MonitorState getState() {
+        return this.state;
+    }
+
+    private List<WorkflowRun> pollRuns(Instant lastRunTime) throws Exception {
         int page = 1;
         int MAX_PAGES = 10;
         boolean hasMore = true;
-        Instant lastRunTime = Instant.parse("2025-12-24T12:47:47Z");
         List<WorkflowRun> runs = new ArrayList<>();
 
         while (hasMore) {
@@ -116,11 +128,11 @@ public class WorkflowMonitor implements Runnable {
     }
 
     private void report(Event event) {
-        if (alreadySeenKeys.contains(event.key)) {
+        if (state.alreadySeenKeys.contains(event.key)) {
             return;
         }
 
-        alreadySeenKeys.add(event.key);
+        state.alreadySeenKeys.add(event.key);
         event.print();
     }
 
