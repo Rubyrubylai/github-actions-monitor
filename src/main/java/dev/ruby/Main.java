@@ -27,7 +27,7 @@ public class Main {
 
         GitHubClient client = new GitHubClient(owner, repo, token);
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        StateManager stateManager = new StateManager();
+        StateManager stateManager = new StateManager(owner + "-" + repo);
         WorkflowMonitor monitor = new WorkflowMonitor(client, stateManager);
         scheduler.scheduleWithFixedDelay(monitor, 0, 10, TimeUnit.SECONDS);
 
