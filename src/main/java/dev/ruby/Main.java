@@ -8,14 +8,22 @@ import dev.ruby.client.GitHubClient;
 
 public class Main {
     public static void main(String[] args) {
-        String owner = System.getProperty("owner");
-        String repo = System.getProperty("repo");
-        String token = System.getProperty("token");
-
-        if (owner == null || repo == null || token == null) {
-            System.err.println("Error: Missing required properties -Downer, -Drepo, or -Dtoken");
+        if (args.length < 2) {
+            System.err.println("Usage: java -jar monitor.jar <owner/repo> <personal_access_token>");
             System.exit(1);
         }
+
+        String fullRepo = args[0];
+        String token = args[1];
+
+        String[] parts = fullRepo.split("/");
+        if (parts.length != 2) {
+            System.err.println("Invalid repository format. Use 'owner/repo'.");
+            System.exit(1);
+        }
+
+        String owner = parts[0];
+        String repo = parts[1];
 
         GitHubClient client = new GitHubClient(owner, repo, token);
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
