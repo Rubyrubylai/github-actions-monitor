@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import dev.ruby.WorkflowMonitor.EventStatus;
 import dev.ruby.client.GitHubClient;
 import dev.ruby.model.MonitorState;
 import dev.ruby.model.WorkflowJob;
@@ -37,19 +38,16 @@ public class WorkflowMonitor implements Runnable {
                 isFirstRun = false;
             }
             for (WorkflowRun r : runs) {
+                EventStatus runStatus = EventStatus.map(r.status, r.conclusion);
+
                 String branch = r.headBranch;
                 String sha = r.headSha;
-                if (WorkflowStatus.isNotStarted(r.status)) {
-                    report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, EventStatus.QUEUE, branch, sha, r.name));
+                if (runStatus == EventStatus.QUEUED || runStatus == EventStatus.UNKNOWN) {
+                    report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
                     continue;
                 }
 
-                Event runCompletedEvent = new Event(r.id, r.updatedAt, WorkflowLevel.RUN,
-                        EventStatus.fromConclusion(r.conclusion), branch, sha, r.name);
-                if (state.alreadySeenKeys.containsKey(runCompletedEvent.key)) {
-                    continue;
-                }
-                report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, EventStatus.START, branch, sha,
+                report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, runStatus, branch, sha,
                         r.name));
 
                 List<WorkflowJob> jobs = client.getJobsForRun(r.id);
@@ -57,34 +55,33 @@ public class WorkflowMonitor implements Runnable {
                     if (j.startedAt == null) {
                         continue;
                     }
-                    report(new Event(j.id, j.startedAt, WorkflowLevel.JOB, EventStatus.START, branch, sha, j.name));
+                    EventStatus jobStatus = EventStatus.map(j.status, j.conclusion);
+
+                    report(new Event(j.id, j.startedAt, WorkflowLevel.JOB, runStatus, branch, sha, j.name));
 
                     for (WorkflowStep s : j.steps) {
                         if (s.startedAt == null) {
                             break;
                         }
-                        report(new Event(j.id + s.number, s.startedAt, WorkflowLevel.STEP, EventStatus.START, branch,
-                                sha,
+                        EventStatus stepStatus = EventStatus.map(s.status, s.conclusion);
+
+                        report(new Event(j.id + s.number, s.startedAt, WorkflowLevel.STEP, runStatus, branch, sha,
                                 s.name));
 
-                        if (WorkflowStatus.isFinished(s.status)) {
-                            report(new Event(j.id + s.number, s.completedAt, WorkflowLevel.STEP,
-                                    EventStatus.fromConclusion(s.conclusion), branch,
-                                    sha,
-                                    s.name));
+                        if (stepStatus.isFinished()) {
+                            report(new Event(j.id + s.number, s.completedAt, WorkflowLevel.STEP, stepStatus, branch,
+                                    sha, s.name));
                         }
                     }
 
-                    if (WorkflowStatus.isFinished(j.status)) {
-                        report(new Event(j.id, j.completedAt, WorkflowLevel.JOB,
-                                EventStatus.fromConclusion(j.conclusion), branch, sha, j.name));
+                    if (jobStatus.isFinished()) {
+                        report(new Event(j.id, j.completedAt, WorkflowLevel.JOB, jobStatus, branch, sha, j.name));
                     }
 
                 }
 
-                if (WorkflowStatus.isFinished(r.status)) {
-                    report(new Event(r.id, r.updatedAt, WorkflowLevel.RUN, EventStatus.fromConclusion(r.conclusion),
-                            branch, sha, r.name));
+                if (runStatus.isFinished()) {
+                    report(new Event(r.id, r.updatedAt, WorkflowLevel.RUN, runStatus, branch, sha, r.name));
                 }
 
                 if (r.updatedAt.isAfter(state.lastRunTime)) {
@@ -179,103 +176,39 @@ public class WorkflowMonitor implements Runnable {
     }
 
     private enum WorkflowLevel {
-        RUN("RUN"),
-        JOB("JOB"),
-        STEP("STEP");
-
-        private final String value;
-
-        WorkflowLevel(String value) {
-            this.value = value;
-        }
-
-        @Override
-        public String toString() {
-            return value;
-        }
+        RUN, JOB, STEP;
     }
 
-    private enum WorkflowStatus {
-        REQUESTED("requested"),
-        QUEUED("queued"),
-        WAITING("waiting"),
-        PENDING("pending"),
-        IN_PROGRESS("in_progress"),
-        COMPLETED("completed");
+    public enum EventStatus {
+        QUEUED, STARTED, SUCCESS, FAILURE, CANCELLED, SKIPPED, UNKNOWN;
 
-        private final String value;
+        public static EventStatus map(String status, String conclusion) {
+            if (status == null)
+                return UNKNOWN;
 
-        WorkflowStatus(String value) {
-            this.value = value;
+            return switch (status.toLowerCase()) {
+                case "queued", "requested", "waiting", "pending" -> QUEUED;
+                case "in_progress" -> STARTED;
+                case "completed" -> fromConclusion(conclusion);
+                default -> UNKNOWN;
+            };
         }
 
-        public static boolean isNotStarted(String s) {
-            if (s == null)
-                return false;
-
-            try {
-                WorkflowStatus status = fromValue(s);
-                return status == QUEUED ||
-                        status == REQUESTED ||
-                        status == WAITING ||
-                        status == PENDING;
-            } catch (IllegalArgumentException e) {
-                return false;
-            }
-        }
-
-        public static boolean isFinished(String s) {
-            if (s == null)
-                return false;
-
-            try {
-                WorkflowStatus status = fromValue(s);
-                return status == COMPLETED;
-            } catch (IllegalArgumentException e) {
-                return false;
-            }
-        }
-
-        private static WorkflowStatus fromValue(String s) {
-            for (WorkflowStatus st : values()) {
-                if (st.value.equals(s))
-                    return st;
-            }
-            return PENDING;
-        }
-    }
-
-    private enum EventStatus {
-        QUEUE("queue"),
-        START("start"),
-        SUCCESS("success"),
-        FAILURE("failure"),
-        CANCELLED("cancelled"),
-        SKIPPED("skipped"),
-        COMPLETED("completed");
-
-        private final String value;
-
-        EventStatus(String value) {
-            this.value = value;
-        }
-
-        @Override
-        public String toString() {
-            return value;
-        }
-
-        public static EventStatus fromConclusion(String conclusion) {
+        private static EventStatus fromConclusion(String conclusion) {
             if (conclusion == null)
-                return COMPLETED;
+                return SUCCESS;
 
             return switch (conclusion.toLowerCase()) {
                 case "success" -> SUCCESS;
-                case "failure" -> FAILURE;
+                case "failure", "timed_out", "action_required", "stale" -> FAILURE;
                 case "cancelled" -> CANCELLED;
                 case "skipped" -> SKIPPED;
-                default -> COMPLETED;
+                default -> SUCCESS;
             };
+        }
+
+        public boolean isFinished() {
+            return this == SUCCESS || this == FAILURE || this == CANCELLED || this == SKIPPED;
         }
     }
 }
