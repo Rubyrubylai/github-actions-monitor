@@ -35,7 +35,7 @@ public class GitHubClient {
                 owner, repo, page, perPage);
 
         HttpRequest request = buildRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = sendWithRetry(request);
 
         if (response.statusCode() != 200) {
             throw new RuntimeException("API Error: " + response.statusCode() + " " + response.body());
@@ -50,7 +50,7 @@ public class GitHubClient {
         String url = String.format("https://api.github.com/repos/%s/%s/actions/runs/%d/jobs", owner, repo, runId);
 
         HttpRequest request = buildRequest(url);
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = sendWithRetry(request);
 
         if (response.statusCode() != 200) {
             throw new RuntimeException("API Error: " + response.statusCode() + " " + response.body());
@@ -59,6 +59,35 @@ public class GitHubClient {
         JsonNode root = objectMapper.readTree(response.body());
         WorkflowJob[] jobs = objectMapper.treeToValue(root.path("jobs"), WorkflowJob[].class);
         return Arrays.asList(jobs);
+    }
+
+    private HttpResponse<String> sendWithRetry(HttpRequest request) throws Exception {
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() == 403 || response.statusCode() == 429) {
+            String remaining = response.headers().firstValue("x-ratelimit-remaining").orElse("1");
+            if ("0".equals(remaining)) {
+                long resetTime = Long.parseLong(response.headers().firstValue("x-ratelimit-reset").orElse("0"));
+                long sleepMillis = (resetTime * 1000) - System.currentTimeMillis() + 5 * 1000;
+
+                if (sleepMillis > 0) {
+                    System.err.printf("Rate limit exceeded. Sleep for %d seconds...%n", sleepMillis / 1000);
+
+                    try {
+                        Thread.sleep(sleepMillis);
+                        return sendWithRetry(request);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return response;
+                    }
+                }
+            }
+        }
+
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("API Error: " + response.statusCode() + " " + response.body());
+        }
+        return response;
     }
 
     private HttpRequest buildRequest(String url) {
