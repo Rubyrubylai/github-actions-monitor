@@ -140,12 +140,12 @@ public class WorkflowMonitor implements Runnable {
 
     private void processStep(WorkflowStep s, long jobId, RunContext runCtx) throws Exception {
         EventStatus stepStatus = EventStatus.map(s.status(), s.conclusion());
-        report(new WorkflowEvent(jobId + "_" + s.number(), s.startedAt(), WorkflowLevel.STEP, EventStatus.STARTED,
+        report(new WorkflowEvent(jobId + ":" + s.number(), s.startedAt(), WorkflowLevel.STEP, EventStatus.STARTED,
                 runCtx,
                 s.name()));
 
         if (stepStatus.isFinished()) {
-            report(new WorkflowEvent(jobId + "_" + s.number(), s.completedAt(), WorkflowLevel.STEP, stepStatus, runCtx,
+            report(new WorkflowEvent(jobId + ":" + s.number(), s.completedAt(), WorkflowLevel.STEP, stepStatus, runCtx,
                     s.name()));
         }
     }

@@ -71,8 +71,7 @@ public class GitHubClient {
             throw new RuntimeException("API Error: " + response.statusCode() + " " + response.body());
         }
 
-        JsonNode root = objectMapper.readTree(response.body());
-        WorkflowRun run = objectMapper.treeToValue(root, WorkflowRun.class);
+        WorkflowRun run = objectMapper.readValue(response.body(), WorkflowRun.class);
         return run;
     }
 
