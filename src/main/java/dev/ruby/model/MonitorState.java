@@ -1,4 +1,4 @@
-package dev.ruby;
+package dev.ruby.model;
 
 import java.time.Instant;
 import java.util.HashSet;

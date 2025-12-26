@@ -1,7 +1,5 @@
-package dev.ruby;
+package dev.ruby.client;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -10,10 +8,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import dev.ruby.model.WorkflowJob;
+import dev.ruby.model.WorkflowRun;
 
 public class GitHubClient {
     private final String owner;
@@ -47,7 +46,7 @@ public class GitHubClient {
         return Arrays.asList(runs);
     }
 
-    public List<Job> getJobsForRun(long runId) throws Exception {
+    public List<WorkflowJob> getJobsForRun(long runId) throws Exception {
         String url = String.format("https://api.github.com/repos/%s/%s/actions/runs/%d/jobs", owner, repo, runId);
 
         HttpRequest request = buildRequest(url);
@@ -58,7 +57,7 @@ public class GitHubClient {
         }
 
         JsonNode root = objectMapper.readTree(response.body());
-        Job[] jobs = objectMapper.treeToValue(root.path("jobs"), Job[].class);
+        WorkflowJob[] jobs = objectMapper.treeToValue(root.path("jobs"), WorkflowJob[].class);
         return Arrays.asList(jobs);
     }
 
@@ -71,47 +70,4 @@ public class GitHubClient {
                 .GET()
                 .build();
     }
-}
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-class WorkflowRun {
-    public long id;
-    public String name;
-    public String status;
-    public String conclusion;
-    @JsonProperty("head_branch")
-    public String headBranch;
-    @JsonProperty("head_sha")
-    public String headSha;
-    @JsonProperty("created_at")
-    public Instant createdAt;
-    @JsonProperty("updated_at")
-    public Instant updatedAt;
-    @JsonProperty("run_started_at")
-    public Instant runStartedAt;
-}
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-class Job {
-    public long id;
-    public String name;
-    public String status;
-    public String conclusion;
-    @JsonProperty("started_at")
-    public Instant startedAt;
-    @JsonProperty("completed_at")
-    public Instant completedAt;
-    public List<Step> steps = new ArrayList<>();
-}
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-class Step {
-    public String name;
-    public String status;
-    public String conclusion;
-    public int number;
-    @JsonProperty("started_at")
-    public Instant startedAt;
-    @JsonProperty("completed_at")
-    public Instant completedAt;
 }

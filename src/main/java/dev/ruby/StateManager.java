@@ -6,6 +6,8 @@ import java.io.IOException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
+import dev.ruby.model.MonitorState;
+
 public class StateManager {
     private final File stateFile = new File("workflow-state.json");
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());

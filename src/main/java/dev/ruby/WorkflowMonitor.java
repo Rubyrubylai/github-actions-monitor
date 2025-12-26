@@ -5,6 +5,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+import dev.ruby.client.GitHubClient;
+import dev.ruby.model.MonitorState;
+import dev.ruby.model.WorkflowJob;
+import dev.ruby.model.WorkflowRun;
+import dev.ruby.model.WorkflowStep;
+
 public class WorkflowMonitor implements Runnable {
     private final GitHubClient client;
     private final StateManager stateManager;
@@ -44,14 +50,14 @@ public class WorkflowMonitor implements Runnable {
                 report(new Event(r.id, r.createdAt, WorkflowLevel.RUN, EventStatus.START, branch, sha,
                         r.name));
 
-                List<Job> jobs = client.getJobsForRun(r.id);
-                for (Job j : jobs) {
+                List<WorkflowJob> jobs = client.getJobsForRun(r.id);
+                for (WorkflowJob j : jobs) {
                     if (j.startedAt == null) {
                         continue;
                     }
                     report(new Event(j.id, j.startedAt, WorkflowLevel.JOB, EventStatus.START, branch, sha, j.name));
 
-                    for (Step s : j.steps) {
+                    for (WorkflowStep s : j.steps) {
                         if (s.startedAt == null) {
                             break;
                         }
