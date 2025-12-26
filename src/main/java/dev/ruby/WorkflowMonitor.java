@@ -21,13 +21,15 @@ public class WorkflowMonitor implements Runnable {
         this.client = client;
         this.stateManager = stateManager;
         this.state = stateManager.load();
+        if (this.state.lastRunTime == null) {
+            this.state.lastRunTime = Instant.now();
+        }
     }
 
     @Override
     public void run() {
         try {
-            Instant lastRunTime = state.lastRunTime == null ? Instant.now() : state.lastRunTime;
-            List<WorkflowRun> runs = pollRuns(lastRunTime);
+            List<WorkflowRun> runs = pollRuns(state.lastRunTime);
             runs.sort(Comparator.comparing(run -> run.updatedAt));
 
             if (isFirstRun) {
@@ -85,7 +87,9 @@ public class WorkflowMonitor implements Runnable {
                             branch, sha, r.name));
                 }
 
-                state.lastRunTime = r.updatedAt;
+                if (r.updatedAt.isAfter(state.lastRunTime)) {
+                    state.lastRunTime = r.updatedAt;
+                }
             }
 
             stateManager.save(state);
