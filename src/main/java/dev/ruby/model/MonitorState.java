@@ -5,13 +5,23 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class MonitorState {
     private Instant lastRunTime;
     private final Map<String, Instant> alreadySeenKeys;
 
+    @JsonCreator
+    public MonitorState(
+            @JsonProperty("lastRunTime") Instant lastRunTime,
+            @JsonProperty("alreadySeenKeys") Map<String, Instant> alreadySeenKeys) {
+        this.lastRunTime = (lastRunTime != null) ? lastRunTime : Instant.now();
+        this.alreadySeenKeys = (alreadySeenKeys != null) ? alreadySeenKeys : new HashMap<>();
+    }
+
     public MonitorState() {
-        this.lastRunTime = Instant.now();
-        this.alreadySeenKeys = new HashMap<>();
+        this(Instant.now(), new HashMap<>());
     }
 
     public Instant getLastRunTime() {
