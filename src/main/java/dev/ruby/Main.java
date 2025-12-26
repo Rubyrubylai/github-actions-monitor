@@ -21,7 +21,7 @@ public class Main {
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         StateManager stateManager = new StateManager();
         WorkflowMonitor monitor = new WorkflowMonitor(client, stateManager);
-        scheduler.scheduleAtFixedRate(monitor, 0, 10, TimeUnit.SECONDS);
+        scheduler.scheduleWithFixedDelay(monitor, 0, 10, TimeUnit.SECONDS);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("Shutting down...");
