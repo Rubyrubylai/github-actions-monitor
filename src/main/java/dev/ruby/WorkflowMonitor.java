@@ -95,7 +95,7 @@ public class WorkflowMonitor implements Runnable {
             stateManager.save(state);
 
         } catch (Exception e) {
-            System.out.print("Error polling API: " + e.getMessage());
+            System.err.println("Error polling API: " + e.getMessage());
         }
     }
 
