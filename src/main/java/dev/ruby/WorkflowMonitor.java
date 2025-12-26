@@ -98,7 +98,8 @@ public class WorkflowMonitor implements Runnable {
 
         RunContext runCtx = new RunContext(r.headBranch(), r.headSha());
         if (runStatus == EventStatus.QUEUED || runStatus == EventStatus.UNKNOWN) {
-            report(new WorkflowEvent(String.valueOf(r.id()), r.createdAt(), WorkflowLevel.RUN, runStatus, runCtx, r.name()));
+            report(new WorkflowEvent(String.valueOf(r.id()), r.createdAt(), WorkflowLevel.RUN, runStatus, runCtx,
+                    r.name()));
             return;
         }
 
@@ -114,7 +115,8 @@ public class WorkflowMonitor implements Runnable {
         }
 
         if (runStatus.isFinished()) {
-            report(new WorkflowEvent(String.valueOf(r.id()), r.updatedAt(), WorkflowLevel.RUN, runStatus, runCtx, r.name()));
+            report(new WorkflowEvent(String.valueOf(r.id()), r.updatedAt(), WorkflowLevel.RUN, runStatus, runCtx,
+                    r.name()));
         }
     }
 
@@ -131,13 +133,15 @@ public class WorkflowMonitor implements Runnable {
         }
 
         if (jobStatus.isFinished()) {
-            report(new WorkflowEvent(String.valueOf(j.id()), j.completedAt(), WorkflowLevel.JOB, jobStatus, runCtx, j.name()));
+            report(new WorkflowEvent(String.valueOf(j.id()), j.completedAt(), WorkflowLevel.JOB, jobStatus, runCtx,
+                    j.name()));
         }
     }
 
     private void processStep(WorkflowStep s, long jobId, RunContext runCtx) throws Exception {
         EventStatus stepStatus = EventStatus.map(s.status(), s.conclusion());
-        report(new WorkflowEvent(jobId + "_" + s.number(), s.startedAt(), WorkflowLevel.STEP, EventStatus.STARTED, runCtx,
+        report(new WorkflowEvent(jobId + "_" + s.number(), s.startedAt(), WorkflowLevel.STEP, EventStatus.STARTED,
+                runCtx,
                 s.name()));
 
         if (stepStatus.isFinished()) {

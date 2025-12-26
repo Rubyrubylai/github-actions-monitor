@@ -1,5 +1,5 @@
 package dev.ruby.model;
 
 public enum WorkflowLevel {
-    RUN, JOB, STEP
+  RUN, JOB, STEP
 }
