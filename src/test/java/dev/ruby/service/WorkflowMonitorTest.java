@@ -19,7 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import dev.ruby.client.GitHubClient;
 import dev.ruby.client.dto.WorkflowRun;
 import dev.ruby.persistence.MonitorState;
-import dev.ruby.persistence.StateManager;
+import dev.ruby.persistence.StateStore;
 
 @ExtendWith(MockitoExtension.class)
 class WorkflowMonitorTest {
@@ -28,7 +28,7 @@ class WorkflowMonitorTest {
         private GitHubClient mockClient;
 
         @Mock
-        private StateManager mockStateManager;
+        private StateStore mockStateManager;
 
         private File stateFile;
 
@@ -53,7 +53,7 @@ class WorkflowMonitorTest {
                                 "main", "abc1234567890",
                                 futureTime, futureTime.plusSeconds(1), futureTime);
 
-                StateManager realStateManager = new StateManager("test-repo");
+                StateStore realStateManager = new StateStore("test-repo");
                 when(mockClient.getWorkflowRuns(1, 100)).thenReturn(List.of(run));
                 when(mockClient.getWorkflowRuns(2, 100)).thenReturn(Collections.emptyList());
 

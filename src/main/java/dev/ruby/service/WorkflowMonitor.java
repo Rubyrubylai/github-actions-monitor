@@ -16,16 +16,16 @@ import dev.ruby.model.RunContext;
 import dev.ruby.model.WorkflowEvent;
 import dev.ruby.model.WorkflowLevel;
 import dev.ruby.persistence.MonitorState;
-import dev.ruby.persistence.StateManager;
+import dev.ruby.persistence.StateStore;
 
 public class WorkflowMonitor implements Runnable {
     private final GitHubClient client;
-    private final StateManager stateManager;
+    private final StateStore stateManager;
     private final MonitorState state;
     private boolean isFirstRun = true;
     private final Set<Long> activeRunIds = new HashSet<>();
 
-    public WorkflowMonitor(GitHubClient client, StateManager stateManager) {
+    public WorkflowMonitor(GitHubClient client, StateStore stateManager) {
         this.client = client;
         this.stateManager = stateManager;
         this.state = stateManager.load();

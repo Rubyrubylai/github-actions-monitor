@@ -7,13 +7,13 @@ import java.time.Duration;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
-public class StateManager {
+public class StateStore {
     private final Duration DEFAULT_RETENTION_PERIOD = Duration.ofDays(7);
     private final File stateFile;
 
     private final ObjectMapper mapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
-    public StateManager(String repo) {
+    public StateStore(String repo) {
         this.stateFile = new File(repo + "-workflow-state.json");
     }
 

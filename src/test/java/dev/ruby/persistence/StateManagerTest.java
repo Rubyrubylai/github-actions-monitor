@@ -11,16 +11,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-
 class StateManagerTest {
 
     private static final String TEST_REPO = "test-owner-test-repo";
-    private StateManager stateManager;
+    private StateStore stateManager;
     private File stateFile;
 
     @BeforeEach
     void setUp() {
-        stateManager = new StateManager(TEST_REPO);
+        stateManager = new StateStore(TEST_REPO);
         stateFile = new File(TEST_REPO + "-workflow-state.json");
     }
 
@@ -85,8 +84,8 @@ class StateManagerTest {
 
     @Test
     void differentRepos_shouldUseDifferentFiles() {
-        StateManager manager1 = new StateManager("repo1");
-        StateManager manager2 = new StateManager("repo2");
+        StateStore manager1 = new StateStore("repo1");
+        StateStore manager2 = new StateStore("repo2");
 
         File file1 = new File("repo1-workflow-state.json");
         File file2 = new File("repo2-workflow-state.json");
