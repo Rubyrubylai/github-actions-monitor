@@ -1,9 +1,5 @@
 package dev.ruby.client;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -11,8 +7,12 @@ import java.net.http.HttpResponse;
 import java.util.Arrays;
 import java.util.List;
 
-import dev.ruby.model.WorkflowJob;
-import dev.ruby.model.WorkflowRun;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+
+import dev.ruby.client.dto.WorkflowJob;
+import dev.ruby.client.dto.WorkflowRun;
 
 public class GitHubClient {
     private final String owner;

@@ -1,4 +1,4 @@
-package dev.ruby;
+package dev.ruby.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -8,14 +8,15 @@ import java.util.List;
 import java.util.Set;
 
 import dev.ruby.client.GitHubClient;
+import dev.ruby.client.dto.WorkflowJob;
+import dev.ruby.client.dto.WorkflowRun;
+import dev.ruby.client.dto.WorkflowStep;
 import dev.ruby.model.EventStatus;
-import dev.ruby.model.MonitorState;
 import dev.ruby.model.RunContext;
 import dev.ruby.model.WorkflowEvent;
-import dev.ruby.model.WorkflowJob;
 import dev.ruby.model.WorkflowLevel;
-import dev.ruby.model.WorkflowRun;
-import dev.ruby.model.WorkflowStep;
+import dev.ruby.persistence.MonitorState;
+import dev.ruby.persistence.StateManager;
 
 public class WorkflowMonitor implements Runnable {
     private final GitHubClient client;
@@ -24,7 +25,7 @@ public class WorkflowMonitor implements Runnable {
     private boolean isFirstRun = true;
     private final Set<Long> activeRunIds = new HashSet<>();
 
-    WorkflowMonitor(GitHubClient client, StateManager stateManager) {
+    public WorkflowMonitor(GitHubClient client, StateManager stateManager) {
         this.client = client;
         this.stateManager = stateManager;
         this.state = stateManager.load();

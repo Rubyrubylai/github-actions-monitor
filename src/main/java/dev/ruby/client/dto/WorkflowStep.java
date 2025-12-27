@@ -1,4 +1,4 @@
-package dev.ruby.model;
+package dev.ruby.client.dto;
 
 import java.time.Instant;
 

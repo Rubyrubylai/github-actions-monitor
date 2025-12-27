@@ -1,4 +1,4 @@
-package dev.ruby.model;
+package dev.ruby.persistence;
 
 import java.time.Duration;
 import java.time.Instant;

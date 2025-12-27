@@ -5,6 +5,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import dev.ruby.client.GitHubClient;
+import dev.ruby.persistence.StateManager;
+import dev.ruby.service.WorkflowMonitor;
 
 public class Main {
     public static void main(String[] args) {

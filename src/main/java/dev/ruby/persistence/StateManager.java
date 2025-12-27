@@ -1,4 +1,4 @@
-package dev.ruby;
+package dev.ruby.persistence;
 
 import java.io.File;
 import java.io.IOException;
@@ -6,8 +6,6 @@ import java.time.Duration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
-import dev.ruby.model.MonitorState;
 
 public class StateManager {
     private final Duration DEFAULT_RETENTION_PERIOD = Duration.ofDays(7);

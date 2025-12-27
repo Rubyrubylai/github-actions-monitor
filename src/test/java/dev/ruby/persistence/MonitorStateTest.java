@@ -1,4 +1,4 @@
-package dev.ruby.model;
+package dev.ruby.persistence;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
 
 class MonitorStateTest {
 
