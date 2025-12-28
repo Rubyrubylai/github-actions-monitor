@@ -105,13 +105,15 @@ src/main/java/dev/ruby
 
 ## 6. State Management & Persistence
 
-- **Decision**: Used a local file-based persistence mechanism to store the lastRunTime and notified event keys.
+- **Decision**: Used a local file-based persistence mechanism to store the lastRunTime and alreadySeenKeys. The state is synchronized to the disk after each polling cycle.
 - **Reasoning**: This approach ensures that the monitor can resume from its last known state after restarts, providing continuity in monitoring without requiring complex database setups.
+- **Trade-off**: The entire state file is rewritten during each update. While this write overhead is not ideal for massive datasets, it ensures atomic writes and keeps the implementation simple. For future scaling, a batch-save strategy (every N cycles) can be implemented.
 
 ## 7. State Cleanup
 
 - **Decision**: Implemented periodic cleanup of the local state file to remove entries older than 7 days.
 - **Reasoning**: This prevents the state file from growing indefinitely, ensuring efficient storage usage and maintaining optimal performance over time.
+- **Trade-off**: Cleanup is performed synchronously before the save operation. While this slightly increases the latency of the save phase, it simplifies the implementation and ensures that stale entries are consistently removed.
 
 ## 8. Rate Limiting Handling
 
