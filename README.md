@@ -83,7 +83,7 @@ src/main/java/dev/ruby
 
 ## 2. Pagination & Early Exit Strategy
 
-- **Approach**: Fetch workflow runs page by page and stop when updatedAt < lastRunTime for the remaining results.
+- **Approach**: Fetch workflow runs page by page and stop when `updatedAt` < `lastRunTime` for the remaining results.
 - **Trade-off**: Since the API is sorted by createdAt descending, re-running a very old workflow might be missed if it falls outside the initial pages. This is an intentional trade-off to prioritize performance and simplicity, as re-running old historical workflows is a rare edge case.
 
 ## 3. Resource Protection & Rate Limiting
@@ -93,19 +93,19 @@ src/main/java/dev/ruby
 
 ## 4. Active Run Tracking
 
-- **Decision**: Implemented an Active Run List. The system stores all non-terminal runs (e.g., in_progress, queued) in memory and performs targeted polling for these specific IDs until they reach a completed state.
-- **Reasoning**: Since the updatedAt field of List Workflow Runs API may not reflect real-time updates of individual internal Jobs or Steps. Thus, polling from the specific Workflow Run API to track active runs ensures that users receive timely notifications about state changes.
+- **Decision**: Implemented an active run list `activeRunIds`. The system stores all non-terminal runs (e.g., in_progress, queued) in memory and performs targeted polling for these specific IDs until they reach a completed state.
+- **Reasoning**: Since the `updatedAt` field of `List Workflow Runs API` may not reflect real-time updates of individual internal Jobs or Steps. Thus, polling from the specific `Get Workflow Run API` to track active runs ensures that users receive timely notifications about state changes.
 - **References**:
   - [Get a workflow run](https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#get-a-workflow-run)
 
 ## 5. Event Deduplication
 
-- **Decision**: Implemented a local state map to record unique keys for every notified event.
-- **Reasoning**: Relying solely on the lastRunTime timestamp for filtering can lead to missing events if multiple runs are updated within the same polling interval (e.g., at the exact same second).
+- **Decision**: Implemented a local state map `alreadySeenKeys` to record unique keys for every notified event.
+- **Reasoning**: Relying solely on the `lastRunTime` timestamp for filtering can lead to missing events if multiple runs are updated within the same polling interval (e.g., at the exact same second).
 
 ## 6. State Management & Persistence
 
-- **Decision**: Used a local file-based persistence mechanism to store the lastRunTime and alreadySeenKeys. The state is synchronized to the disk after each polling cycle.
+- **Decision**: Used a local file-based persistence mechanism to store the `lastRunTime` and `alreadySeenKeys`. The state is synchronized to the disk after each polling cycle.
 - **Reasoning**: This approach ensures that the monitor can resume from its last known state after restarts, providing continuity in monitoring without requiring complex database setups.
 - **Trade-off**: The entire state file is rewritten during each update. While this write overhead is not ideal for massive datasets, it ensures atomic writes and keeps the implementation simple. For future scaling, a batch-save strategy (every N cycles) can be implemented.
 
@@ -117,7 +117,7 @@ src/main/java/dev/ruby
 
 ## 8. Rate Limiting Handling
 
-- **Decision**: When a rate limit is encountered, the monitor extracts the x-ratelimit-reset header to determine the exact wait time.
+- **Decision**: When a rate limit is encountered, the monitor extracts the `x-ratelimit-reset` header to determine the exact wait time.
 - **Reasoning**: Instead of crashing or failing silently, the tool enters a "sleep" state and automatically resumes once the quota is replenished. This ensures the monitor can run unattended for long periods without manual intervention.
 - **Reference**:
   - [Rate limits for the REST API](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28)
