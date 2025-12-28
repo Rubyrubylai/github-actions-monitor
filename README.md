@@ -41,6 +41,36 @@ mvn test
 
 This will execute all unit tests and display the results in the console.
 
+# Project Structure
+
+```
+src/main/java/dev/ruby
+├── Main.java
+├── client
+│ ├── GitHubClient.java
+│ └── dto
+│   ├── WorkflowRun.java
+│   ├── WorkflowJob.java
+│   └── WorkflowStep.java
+├── mapper
+│ ├── EventMapper.java
+├── model
+│ ├── EventStatus.java
+│ ├── WorkflowEvent.java
+│ └── WorkflowLevel.java
+├── persistence
+│ ├── MonitorState.java
+│ └── StateStore.java
+└── service
+  └── WorkflowMonitor.java
+```
+
+- **client**: Interacts with GitHub REST API.
+- **mapper**: Transforms API DTOs to internal models.
+- **model**: Contains data models and enums.
+- **persistence**: Manages state storage and retrieval.
+- **service**: Core monitoring logic.
+
 # Design Decisions
 
 ## 1. Polling Strategy
