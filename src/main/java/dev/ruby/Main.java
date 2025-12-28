@@ -29,8 +29,8 @@ public class Main {
 
         GitHubClient client = new GitHubClient(owner, repo, token);
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-        StateStore stateManager = new StateStore(owner + "-" + repo);
-        WorkflowMonitor monitor = new WorkflowMonitor(client, stateManager);
+        StateStore stateStore = new StateStore(owner + "-" + repo);
+        WorkflowMonitor monitor = new WorkflowMonitor(client, stateStore);
         scheduler.scheduleWithFixedDelay(monitor, 0, 10, TimeUnit.SECONDS);
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -41,7 +41,7 @@ public class Main {
                 if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                     scheduler.shutdownNow();
                 }
-                stateManager.save(monitor.getState());
+                stateStore.save(monitor.getState());
             } catch (InterruptedException e) {
                 scheduler.shutdownNow();
             }

@@ -11,15 +11,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class StateManagerTest {
+class StateStoreTest {
 
     private static final String TEST_REPO = "test-owner-test-repo";
-    private StateStore stateManager;
+    private StateStore stateStore;
     private File stateFile;
 
     @BeforeEach
     void setUp() {
-        stateManager = new StateStore(TEST_REPO);
+        stateStore = new StateStore(TEST_REPO);
         stateFile = new File(TEST_REPO + "-workflow-state.json");
     }
 
@@ -32,7 +32,7 @@ class StateManagerTest {
 
     @Test
     void load_withNoExistingFile_shouldReturnNewState() {
-        MonitorState state = stateManager.load();
+        MonitorState state = stateStore.load();
 
         assertNotNull(state);
         assertNotNull(state.getLastRunTime());
@@ -46,7 +46,7 @@ class StateManagerTest {
         state.setLastRunTime(testTime);
         state.isNewEvent("test_key", Instant.now());
 
-        stateManager.save(state);
+        stateStore.save(state);
 
         assertTrue(stateFile.exists());
     }
@@ -59,8 +59,8 @@ class StateManagerTest {
         originalState.isNewEvent("test_key_1", Instant.now());
         originalState.isNewEvent("test_key_2", Instant.now());
 
-        stateManager.save(originalState);
-        MonitorState loadedState = stateManager.load();
+        stateStore.save(originalState);
+        MonitorState loadedState = stateStore.load();
 
         assertEquals(testTime, loadedState.getLastRunTime());
         assertTrue(loadedState.getAlreadySeenKeys().containsKey("test_key_1"));
@@ -75,8 +75,8 @@ class StateManagerTest {
         // add a recent key
         state.isNewEvent("recent_key", Instant.now());
 
-        stateManager.save(state);
-        MonitorState loadedState = stateManager.load();
+        stateStore.save(state);
+        MonitorState loadedState = stateStore.load();
 
         assertFalse(loadedState.getAlreadySeenKeys().containsKey("old_key"));
         assertTrue(loadedState.getAlreadySeenKeys().containsKey("recent_key"));

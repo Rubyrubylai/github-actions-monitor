@@ -19,15 +19,15 @@ import dev.ruby.persistence.StateStore;
 
 public class WorkflowMonitor implements Runnable {
     private final GitHubClient client;
-    private final StateStore stateManager;
+    private final StateStore stateStore;
     private final MonitorState state;
     private boolean isFirstRun = true;
     private final Set<Long> activeRunIds = new HashSet<>();
 
-    public WorkflowMonitor(GitHubClient client, StateStore stateManager) {
+    public WorkflowMonitor(GitHubClient client, StateStore stateStore) {
         this.client = client;
-        this.stateManager = stateManager;
-        this.state = stateManager.load();
+        this.stateStore = stateStore;
+        this.state = stateStore.load();
         if (this.state.getLastRunTime() == null) {
             this.state.setLastRunTime(Instant.now());
         }
@@ -83,7 +83,7 @@ public class WorkflowMonitor implements Runnable {
                 }
             }
 
-            stateManager.save(state);
+            stateStore.save(state);
         } catch (Exception e) {
             System.err.println("Error processing RUN: " + e.getMessage());
         }

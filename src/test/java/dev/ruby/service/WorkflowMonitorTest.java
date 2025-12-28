@@ -28,7 +28,7 @@ class WorkflowMonitorTest {
         private GitHubClient mockClient;
 
         @Mock
-        private StateStore mockStateManager;
+        private StateStore mockStateStore;
 
         private File stateFile;
 
@@ -53,11 +53,11 @@ class WorkflowMonitorTest {
                                 "main", "abc1234567890",
                                 futureTime, futureTime.plusSeconds(1), futureTime);
 
-                StateStore realStateManager = new StateStore("test-repo");
+                StateStore realStateStore = new StateStore("test-repo");
                 when(mockClient.getWorkflowRuns(1, 100)).thenReturn(List.of(run));
                 when(mockClient.getWorkflowRuns(2, 100)).thenReturn(Collections.emptyList());
 
-                WorkflowMonitor monitor = new WorkflowMonitor(mockClient, realStateManager);
+                WorkflowMonitor monitor = new WorkflowMonitor(mockClient, realStateStore);
                 Instant initialTime = monitor.getState().getLastRunTime();
 
                 monitor.run();
@@ -73,14 +73,14 @@ class WorkflowMonitorTest {
                                 "main", "abc1234567890",
                                 now, now.plusSeconds(1), now);
 
-                when(mockStateManager.load()).thenReturn(new MonitorState());
+                when(mockStateStore.load()).thenReturn(new MonitorState());
                 when(mockClient.getWorkflowRuns(1, 100))
                                 .thenReturn(List.of(inProgressRun))
                                 .thenReturn(Collections.emptyList());
                 when(mockClient.getWorkflowRuns(2, 100)).thenReturn(Collections.emptyList());
                 when(mockClient.getJobsForRun(123L)).thenReturn(Collections.emptyList());
 
-                WorkflowMonitor monitor = new WorkflowMonitor(mockClient, mockStateManager);
+                WorkflowMonitor monitor = new WorkflowMonitor(mockClient, mockStateStore);
                 monitor.run();
 
                 MonitorState state = monitor.getState();
@@ -109,14 +109,14 @@ class WorkflowMonitorTest {
                                 "main", "abc1234567890",
                                 now, now.plusSeconds(1), now);
 
-                when(mockStateManager.load()).thenReturn(new MonitorState());
+                when(mockStateStore.load()).thenReturn(new MonitorState());
                 when(mockClient.getWorkflowRuns(1, 100))
                                 .thenReturn(List.of(inProgressRun))
                                 .thenReturn(Collections.emptyList());
                 when(mockClient.getWorkflowRuns(2, 100)).thenReturn(Collections.emptyList());
                 when(mockClient.getJobsForRun(123L)).thenReturn(Collections.emptyList());
 
-                WorkflowMonitor monitor = new WorkflowMonitor(mockClient, mockStateManager);
+                WorkflowMonitor monitor = new WorkflowMonitor(mockClient, mockStateStore);
                 monitor.run();
 
                 WorkflowRun completedRun = new WorkflowRun(
